@@ -5,7 +5,7 @@ from fastapi.responses import JSONResponse
 from PIL import Image
 import torch
 import io
-from model_loader import model, processor
+from .model_loader import model, processor
 
 app = FastAPI(
     title="Fotovia AI Image Classification Service",
