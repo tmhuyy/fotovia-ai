@@ -17,7 +17,12 @@ app = FastAPI(
 
 @app.get("/")
 def healthcheck():
-    return {"message": "Fotovia AI Service is running 🚀"}
+    return {
+        "statusCode": 200,
+        "data": {
+            "message": "Fotovia AI Service is running 🚀"
+        }
+    }
 
 @app.post("/classify")
 async def classify_image(file: UploadFile = File(...)):
@@ -42,7 +47,19 @@ async def classify_image(file: UploadFile = File(...)):
                 }
             )
             
-        return {"predictions": results}
+        return {
+            "statusCode": 200,
+            "data": {
+                "predictions": results
+            }
+        }
 
     except Exception as e:
-        return JSONResponse(status_code=500, content={"error": str(e)})
+        return JSONResponse(
+            status_code=500, 
+            content={
+                "statusCode": 500,
+                "data": None,
+                "error": str(e)
+            }
+        )
