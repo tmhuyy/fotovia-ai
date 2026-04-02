@@ -1,11 +1,11 @@
 from fastapi import FastAPI, File, UploadFile
 from fastapi.responses import JSONResponse
-
-# from transformers import CLIPProcessor, CLIPModel
 from PIL import Image
 import torch
 import io
-from .model_loader import model, processor
+
+from .model_loader import model, img_transforms, device
+from .config import LABELS
 
 app = FastAPI(
     title="Fotovia AI Image Classification Service",
@@ -15,27 +15,14 @@ app = FastAPI(
     openapi_url="/openapi.json",
 )
 
-# Load model once when server starts
-# model = CLIPModel.from_pretrained("openai/clip-vit-base-patch32")
-# processor = CLIPProcessor.from_pretrained("openai/clip-vit-base-patch32")
-
-# Define photography categories
-LABELS = [
-    "film photography",
-    "hong kong vibe",
-    "wedding photography",
-    "food photography",
-    "interior photography",
-    "portrait photography",
-    "street photography",
-    "cinematic photography",
-]
-
-
 @app.get("/")
 def healthcheck():
-    return {"message": "Fotovia AI Service is running 🚀"}
-
+    return {
+        "statusCode": 200,
+        "data": {
+            "message": "Fotovia AI Service is running 🚀"
+        }
+    }
 
 @app.post("/classify")
 async def classify_image(file: UploadFile = File(...)):
@@ -43,14 +30,11 @@ async def classify_image(file: UploadFile = File(...)):
         image_bytes = await file.read()
         image = Image.open(io.BytesIO(image_bytes)).convert("RGB")
 
-        inputs = processor(text=LABELS, images=image, return_tensors="pt", padding=True)
+        input_tensor = img_transforms(image).unsqueeze(0).to(device)
 
         with torch.no_grad():
-            outputs = model(**inputs)
-            logits_per_image = outputs.logits_per_image
-            probs = logits_per_image.softmax(dim=1)
-
-        # confidence, predicted_index = torch.max(probs, dim=1)
+            outputs = model(input_tensor)
+            probs = torch.nn.functional.softmax(outputs, dim=1)
 
         top_probs, top_indices = torch.topk(probs, 3)
 
@@ -62,14 +46,20 @@ async def classify_image(file: UploadFile = File(...)):
                     "confidence": round(top_probs[0][i].item(), 4),
                 }
             )
-        return {"predictions": results}
-
-        # result = {
-        #     "predicted_tag": LABELS[predicted_index.item()],
-        #     "confidence_score": round(confidence.item(), 4),
-        # }
-
-        # return JSONResponse(content=result)
+            
+        return {
+            "statusCode": 200,
+            "data": {
+                "predictions": results
+            }
+        }
 
     except Exception as e:
-        return JSONResponse(status_code=500, content={"error": str(e)})
+        return JSONResponse(
+            status_code=500, 
+            content={
+                "statusCode": 500,
+                "data": None,
+                "error": str(e)
+            }
+        )
