@@ -71,3 +71,6 @@ pytest_cache/
 # Docker
 # =========================
 *.tar
+
+
+*pth
